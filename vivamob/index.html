@@ -4,10 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>VivaMob — Plataforma para Motoristas</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#10B981">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="VivaMob">
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<base target="_blank">
 </head>
 <body>
   <!-- ============================================
@@ -221,14 +227,13 @@
         <div class="success-row"><span>Status</span><span class="badge badge-success">Cadastro recebido</span></div>
       </div>
       <div class="demo-payment-box">
-        <div class="demo-badge">Pagamento</div>
+        <div class="demo-badge">DEMONSTRAÇÃO DO MVP</div>
         <h4>💳 Pagamento</h4>
-        <p></p>
-        <!-- O onclick foi alterado para redirecionar para o link desejado -->
-        <button class="btn btn-primary btn-full" onclick="window.location.href='https://pagseguropix.org/c/confirmacao'">Continuar para pagamento</button>
+        <p>Esta área simula o fluxo de pagamento. Nenhum dado bancário é solicitado.</p>
+        <button class="btn btn-primary btn-full" onclick="app.navigate('login')">Continuar para demonstração</button>
       </div>
     </div>
-</section>
+  </section>
 
   <!-- ============================================
        LOGIN
@@ -461,10 +466,10 @@
           <span class="wallet-label">Saldo disponível</span>
           <strong class="wallet-amount" id="wallet-saldo">R$ 0,00</strong>
           <div class="wallet-actions">
-            <button class="wallet-btn" onclick="app.showToast('Transferência — somente no dia do evento','info')">
+            <button class="wallet-btn" onclick="app.showToast('Transferência — demonstração','info')">
               <span>💸</span><span>Transferir</span>
             </button>
-            <button class="wallet-btn" onclick="app.showToast('Adicionar saldo — somente no dia do evento','info')">
+            <button class="wallet-btn" onclick="app.showToast('Adicionar saldo — demonstração','info')">
               <span>➕</span><span>Adicionar</span>
             </button>
           </div>
@@ -502,7 +507,7 @@
         <p class="page-desc">Solicite seu benefício através da plataforma.</p>
         <div class="fuel-card">
           <span class="fuel-label">Crédito disponível</span>
-          <strong class="fuel-amount" id="fuel-credito">R$ 300,00</strong>
+          <strong class="fuel-amount" id="fuel-credito">R$ 0,00</strong>
           <button class="btn btn-primary btn-full" onclick="app.requestFuel()">Solicitar vale</button>
         </div>
         <div class="fuel-requests" id="fuel-requests">
