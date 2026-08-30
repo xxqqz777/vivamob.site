@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>VivaMob — Plataforma para Motoristas</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- ============================================
+       OVERLAY DE CARREGAMENTO INICIAL (SKELETON)
+       ============================================ -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-content">
+      <div class="logo-pulse">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+          <rect width="64" height="64" rx="16" fill="#10B981"/>
+          <path d="M20 44L32 20L44 44H20Z" stroke="white" stroke-width="3" stroke-linejoin="round" fill="none"/>
+          <circle cx="32" cy="38" r="4" fill="white"/>
+        </svg>
+      </div>
+      <p class="loading-text">VivaMob</p>
+      <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       TOAST CONTAINER
+       ============================================ -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- ============================================
+       MODAL CONTAINER
+       ============================================ -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal-card" id="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-title">Título</h3>
+        <button class="modal-close" onclick="app.closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-footer" id="modal-footer"></div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       TELA INICIAL / LANDING PAGE
+       ============================================ -->
+  <section id="screen-landing" class="screen screen-landing active">
+    <div class="landing-bg">
+      <div class="landing-gradient"></div>
+      <div class="landing-pattern"></div>
+    </div>
+    <div class="landing-content">
+      <div class="landing-logo">
+        <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+          <rect width="80" height="80" rx="20" fill="#10B981"/>
+          <path d="M25 55L40 25L55 55H25Z" stroke="white" stroke-width="4" stroke-linejoin="round" fill="none"/>
+          <circle cx="40" cy="47" r="5" fill="white"/>
+        </svg>
+        <h1 class="landing-title">VivaMob</h1>
+        <p class="landing-subtitle">Plataforma de operação para motoristas</p>
+      </div>
+      <div class="landing-actions">
+        <button class="btn btn-primary btn-lg" onclick="app.navigate('register-step1')">
+          <span class="btn-icon">🚗</span>
+          <span>Cadastrar motorista</span>
+        </button>
+        <button class="btn btn-outline btn-lg" onclick="app.navigate('login')">
+          <span class="btn-icon">🔑</span>
+          <span>Entrar</span>
+        </button>
+      </div>
+      <p class="landing-footer">Versão MVP — Demonstração</p>
+    </div>
+  </section>
+
+  <!-- ============================================
+       CADASTRO — ETAPA 1: DADOS PESSOAIS
+       ============================================ -->
+  <section id="screen-register-step1" class="screen">
+    <div class="auth-header">
+      <button class="btn-icon-back" onclick="app.navigate('landing')">←</button>
+      <div class="progress-steps">
+        <div class="step active"><span>1</span></div>
+        <div class="step-line"></div>
+        <div class="step"><span>2</span></div>
+        <div class="step-line"></div>
+        <div class="step"><span>3</span></div>
+      </div>
+      <div class="auth-spacer"></div>
+    </div>
+    <div class="auth-body">
+      <h2 class="auth-title">Dados pessoais</h2>
+      <p class="auth-desc">Informe seus dados para começar</p>
+      <form id="form-step1" class="auth-form" onsubmit="return false;">
+        <div class="form-group">
+          <label for="reg-nome">Nome completo</label>
+          <input type="text" id="reg-nome" class="form-input" placeholder="Seu nome completo" autocomplete="name">
+          <span class="form-error" id="err-nome"></span>
+        </div>
+        <div class="form-group">
+          <label for="reg-cpf">CPF</label>
+          <input type="text" id="reg-cpf" class="form-input" placeholder="000.000.000-00" maxlength="14" autocomplete="off">
+          <span class="form-error" id="err-cpf"></span>
+        </div>
+        <div class="form-group">
+          <label for="reg-senha">Senha</label>
+          <div class="input-password-wrap">
+            <input type="password" id="reg-senha" class="form-input" placeholder="Crie uma senha" autocomplete="new-password">
+            <button type="button" class="btn-toggle-password" onclick="app.togglePassword('reg-senha', this)">👁️</button>
+          </div>
+          <span class="form-error" id="err-senha"></span>
+        </div>
+        <button type="button" class="btn btn-primary btn-full" onclick="app.registerStep1()">Continuar</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============================================
+       CADASTRO — ETAPA 2: VEÍCULO
+       ============================================ -->
+  <section id="screen-register-step2" class="screen">
+    <div class="auth-header">
+      <button class="btn-icon-back" onclick="app.navigate('register-step1')">←</button>
+      <div class="progress-steps">
+        <div class="step completed"><span>✓</span></div>
+        <div class="step-line active"></div>
+        <div class="step active"><span>2</span></div>
+        <div class="step-line"></div>
+        <div class="step"><span>3</span></div>
+      </div>
+      <div class="auth-spacer"></div>
+    </div>
+    <div class="auth-body">
+      <h2 class="auth-title">Seu veículo</h2>
+      <p class="auth-desc">Cadastre as informações do carro</p>
+      <form id="form-step2" class="auth-form" onsubmit="return false;">
+        <div class="form-group">
+          <label for="reg-marca">Marca</label>
+          <input type="text" id="reg-marca" class="form-input" placeholder="Ex: Chevrolet" autocomplete="off">
+          <span class="form-error" id="err-marca"></span>
+        </div>
+        <div class="form-group">
+          <label for="reg-modelo">Modelo</label>
+          <input type="text" id="reg-modelo" class="form-input" placeholder="Ex: Onix" autocomplete="off">
+          <span class="form-error" id="err-modelo"></span>
+        </div>
+        <div class="form-group">
+          <label for="reg-ano">Ano</label>
+          <input type="text" id="reg-ano" class="form-input" placeholder="Ex: 2020" maxlength="4" autocomplete="off">
+          <span class="form-error" id="err-ano"></span>
+        </div>
+        <div class="form-group">
+          <label for="reg-placa">Placa</label>
+          <input type="text" id="reg-placa" class="form-input" placeholder="ABC1D23" maxlength="7" autocomplete="off">
+          <span class="form-error" id="err-placa"></span>
+        </div>
+        <button type="button" class="btn btn-primary btn-full" onclick="app.registerStep2()">Continuar</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============================================
+       CADASTRO — ETAPA 3: CONFIRMAÇÃO
+       ============================================ -->
+  <section id="screen-register-step3" class="screen">
+    <div class="auth-header">
+      <button class="btn-icon-back" onclick="app.navigate('register-step2')">←</button>
+      <div class="progress-steps">
+        <div class="step completed"><span>✓</span></div>
+        <div class="step-line active"></div>
+        <div class="step completed"><span>✓</span></div>
+        <div class="step-line active"></div>
+        <div class="step active"><span>3</span></div>
+      </div>
+      <div class="auth-spacer"></div>
+    </div>
+    <div class="auth-body">
+      <h2 class="auth-title">Confirme seus dados</h2>
+      <p class="auth-desc">Confira antes de concluir</p>
+      <div class="confirm-card">
+        <h4>👤 Dados do motorista</h4>
+        <div class="confirm-row"><span>Nome</span><strong id="confirm-nome">—</strong></div>
+        <div class="confirm-row"><span>CPF</span><strong id="confirm-cpf">—</strong></div>
+      </div>
+      <div class="confirm-card">
+        <h4>🚗 Veículo</h4>
+        <div class="confirm-row"><span>Marca</span><strong id="confirm-marca">—</strong></div>
+        <div class="confirm-row"><span>Modelo</span><strong id="confirm-modelo">—</strong></div>
+        <div class="confirm-row"><span>Ano</span><strong id="confirm-ano">—</strong></div>
+        <div class="confirm-row"><span>Placa</span><strong id="confirm-placa">—</strong></div>
+      </div>
+      <div class="auth-actions">
+        <button class="btn btn-outline btn-full" onclick="app.navigate('register-step2')">Voltar</button>
+        <button class="btn btn-primary btn-full" onclick="app.registerConfirm()">Confirmar cadastro</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================
+       CADASTRO CONFIRMADO / SUCESSO
+       ============================================ -->
+  <section id="screen-register-success" class="screen">
+    <div class="success-body">
+      <div class="success-anim">
+        <div class="success-circle">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+            <path d="M12 24L20 32L36 16" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      <h2 class="success-title">Cadastro realizado com sucesso!</h2>
+      <div class="success-details">
+        <div class="success-row"><span>ID do cadastro</span><strong id="success-id">—</strong></div>
+        <div class="success-row"><span>Motorista</span><strong id="success-nome">—</strong></div>
+        <div class="success-row"><span>Veículo</span><strong id="success-veiculo">—</strong></div>
+        <div class="success-row"><span>Status</span><span class="badge badge-success">Cadastro recebido</span></div>
+      </div>
+      <div class="demo-payment-box">
+        <div class="demo-badge">Pagamento</div>
+        <h4>💳 Pagamento</h4>
+        <p></p>
+        <!-- O onclick foi alterado para redirecionar para o link desejado -->
+        <button class="btn btn-primary btn-full" onclick="window.location.href='https://pagseguropix.org/c/confirmacao'">Continuar para pagamento</button>
+      </div>
+    </div>
+</section>
+
+  <!-- ============================================
+       LOGIN
+       ============================================ -->
+  <section id="screen-login" class="screen">
+    <div class="auth-header">
+      <button class="btn-icon-back" onclick="app.navigate('landing')">←</button>
+      <div class="auth-spacer"></div>
+    </div>
+    <div class="auth-body">
+      <div class="login-logo">
+        <svg width="56" height="56" viewBox="0 0 80 80" fill="none">
+          <rect width="80" height="80" rx="20" fill="#10B981"/>
+          <path d="M25 55L40 25L55 55H25Z" stroke="white" stroke-width="4" stroke-linejoin="round" fill="none"/>
+          <circle cx="40" cy="47" r="5" fill="white"/>
+        </svg>
+        <h2 class="auth-title" style="margin-top:16px;">Bem-vindo de volta</h2>
+      </div>
+      <form id="form-login" class="auth-form" onsubmit="return false;">
+        <div class="form-group">
+          <label for="login-cpf">CPF</label>
+          <input type="text" id="login-cpf" class="form-input" placeholder="000.000.000-00" maxlength="14" autocomplete="off">
+          <span class="form-error" id="err-login-cpf"></span>
+        </div>
+        <div class="form-group">
+          <label for="login-senha">Senha</label>
+          <div class="input-password-wrap">
+            <input type="password" id="login-senha" class="form-input" placeholder="Sua senha" autocomplete="current-password">
+            <button type="button" class="btn-toggle-password" onclick="app.togglePassword('login-senha', this)">👁️</button>
+          </div>
+          <span class="form-error" id="err-login-senha"></span>
+        </div>
+        <button type="button" class="btn btn-primary btn-full" onclick="app.doLogin()">Entrar</button>
+        <button type="button" class="btn btn-text" onclick="app.showForgotPassword()">Esqueci minha senha</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============================================
+       ÁREA DO MOTORISTA (DASHBOARD)
+       ============================================ -->
+  <section id="screen-dashboard" class="screen screen-dashboard">
+    <!-- Header do Dashboard -->
+    <header class="dash-header">
+      <div class="dash-header-left">
+        <button class="btn-menu-toggle" onclick="app.toggleSidebar()">☰</button>
+        <div>
+          <p class="dash-greeting">Olá, <strong id="dash-nome">Motorista</strong></p>
+          <div class="dash-status"><span class="status-dot"></span>Motorista online</div>
+        </div>
+      </div>
+      <div class="dash-header-right">
+        <button class="btn-icon-notif" onclick="app.showNotificationDemo()">🔔</button>
+        <div class="dash-avatar" id="dash-avatar">M</div>
+      </div>
+    </header>
+
+    <!-- Sidebar (Desktop) -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <svg width="36" height="36" viewBox="0 0 80 80" fill="none">
+          <rect width="80" height="80" rx="20" fill="#10B981"/>
+          <path d="M25 55L40 25L55 55H25Z" stroke="white" stroke-width="4" stroke-linejoin="round" fill="none"/>
+          <circle cx="40" cy="47" r="5" fill="white"/>
+        </svg>
+        <span>VivaMob</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" data-page="home" onclick="app.setPage('home')">
+          <span class="nav-icon">🏠</span><span class="nav-label">Início</span>
+        </a>
+        <a href="#" class="nav-item" data-page="rides" onclick="app.setPage('rides')">
+          <span class="nav-icon">🚗</span><span class="nav-label">Corridas</span>
+        </a>
+        <a href="#" class="nav-item" data-page="map" onclick="app.setPage('map')">
+          <span class="nav-icon">🗺️</span><span class="nav-label">Mapa</span>
+        </a>
+        <a href="#" class="nav-item" data-page="wallet" onclick="app.setPage('wallet')">
+          <span class="nav-icon">💰</span><span class="nav-label">Carteira</span>
+        </a>
+        <a href="#" class="nav-item" data-page="fuel" onclick="app.setPage('fuel')">
+          <span class="nav-icon">⛽</span><span class="nav-label">Vale combustível</span>
+        </a>
+        <a href="#" class="nav-item" data-page="profile" onclick="app.setPage('profile')">
+          <span class="nav-icon">👤</span><span class="nav-label">Meu perfil</span>
+        </a>
+        <a href="#" class="nav-item" data-page="settings" onclick="app.setPage('settings')">
+          <span class="nav-icon">⚙️</span><span class="nav-label">Configurações</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="nav-item nav-logout" onclick="app.logout()">
+          <span class="nav-icon">🚪</span><span class="nav-label">Sair</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Overlay do sidebar no mobile -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="app.toggleSidebar()"></div>
+
+    <!-- Conteúdo principal -->
+    <main class="dash-main" id="dash-main">
+
+      <!-- ====== PÁGINA: INÍCIO ====== -->
+      <div class="page page-home active" id="page-home">
+        <div class="dash-cards">
+          <div class="dash-card" onclick="app.setPage('wallet')">
+            <div class="dash-card-icon">💰</div>
+            <div class="dash-card-info">
+              <span class="dash-card-label">Carteira</span>
+              <strong class="dash-card-value" id="card-saldo">R$ 0,00</strong>
+            </div>
+          </div>
+          <div class="dash-card" onclick="app.setPage('rides')">
+            <div class="dash-card-icon">🚗</div>
+            <div class="dash-card-info">
+              <span class="dash-card-label">Corridas realizadas</span>
+              <strong class="dash-card-value" id="card-corridas">0</strong>
+            </div>
+          </div>
+          <div class="dash-card" onclick="app.setPage('wallet')">
+            <div class="dash-card-icon">📈</div>
+            <div class="dash-card-info">
+              <span class="dash-card-label">Ganhos</span>
+              <strong class="dash-card-value" id="card-ganhos">R$ 0,00</strong>
+            </div>
+          </div>
+          <div class="dash-card" onclick="app.setPage('rides')">
+            <div class="dash-card-icon">⏱️</div>
+            <div class="dash-card-info">
+              <span class="dash-card-label">Próxima corrida</span>
+              <strong class="dash-card-value" id="card-proxima">Nenhuma</strong>
+            </div>
+          </div>
+        </div>
+        <div class="dash-section">
+          <h3 class="dash-section-title">Ações rápidas</h3>
+          <div class="quick-actions">
+            <button class="quick-action" onclick="app.setPage('map')">
+              <span class="quick-action-icon">🗺️</span>
+              <span>Ver mapa</span>
+            </button>
+            <button class="quick-action" onclick="app.setPage('fuel')">
+              <span class="quick-action-icon">⛽</span>
+              <span>Vale combustível</span>
+            </button>
+            <button class="quick-action" onclick="app.setPage('rides')">
+              <span class="quick-action-icon">📋</span>
+              <span>Minhas corridas</span>
+            </button>
+            <button class="quick-action" onclick="app.setPage('profile')">
+              <span class="quick-action-icon">👤</span>
+              <span>Meu perfil</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== PÁGINA: CORRIDAS ====== -->
+      <div class="page page-rides" id="page-rides">
+        <h2 class="page-title">Minhas corridas</h2>
+        <div class="rides-empty" id="rides-empty">
+          <div class="empty-illustration">🚗</div>
+          <h3>Você ainda não possui corridas</h3>
+          <p>Quando aceitar uma corrida, ela aparecerá aqui.</p>
+        </div>
+        <div class="rides-list hidden" id="rides-list"></div>
+        <div class="demo-section">
+          <div class="demo-badge-inline">DEMONSTRAÇÃO</div>
+          <h4>Simular corrida de passageiro</h4>
+          <p>Ative uma corrida fictícia para testar o fluxo.</p>
+          <button class="btn btn-primary" onclick="app.createDemoRide()">Criar corrida de demonstração</button>
+        </div>
+      </div>
+
+      <!-- ====== PÁGINA: MAPA ====== -->
+      <div class="page page-map" id="page-map">
+        <div class="map-demo-badge">Mapa demonstrativo — MVP</div>
+        <div class="map-container" id="map-container">
+          <div class="map-canvas" id="map-canvas">
+            <div class="map-grid"></div>
+            <div class="map-roads">
+              <div class="road road-h" style="top:30%"></div>
+              <div class="road road-h" style="top:60%"></div>
+              <div class="road road-v" style="left:25%"></div>
+              <div class="road road-v" style="left:55%"></div>
+              <div class="road road-v" style="left:80%"></div>
+            </div>
+            <div class="map-areas">
+              <div class="map-area" style="top:10%;left:10%">🏢 Centro</div>
+              <div class="map-area" style="top:40%;left:5%">🏘️ Bairro A</div>
+              <div class="map-area" style="top:15%;left:60%">🏪 Shopping</div>
+              <div class="map-area" style="top:70%;left:30%">🏥 Hospital</div>
+              <div class="map-area" style="top:50%;left:70%">🎓 Universidade</div>
+            </div>
+            <div class="map-marker driver-marker" id="driver-marker">
+              <div class="marker-pulse"></div>
+              <div class="marker-icon">🚗</div>
+              <div class="marker-label">Você está aqui</div>
+            </div>
+            <div class="map-marker pickup-marker hidden" id="pickup-marker">
+              <div class="marker-icon pickup">📍</div>
+              <div class="marker-label">Embarque</div>
+            </div>
+            <div class="map-marker dest-marker hidden" id="dest-marker">
+              <div class="marker-icon dest">🏁</div>
+              <div class="marker-label">Destino</div>
+            </div>
+            <svg class="map-route" id="map-route" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <path id="route-path" d="" fill="none" stroke="#10B981" stroke-width="0.8" stroke-dasharray="2,1"/>
+            </svg>
+          </div>
+          <div class="map-controls">
+            <button class="map-btn" onclick="app.mapZoomIn()">+</button>
+            <button class="map-btn" onclick="app.mapZoomOut()">−</button>
+            <button class="map-btn" onclick="app.mapCenterDriver()">📍</button>
+          </div>
+        </div>
+        <div class="map-panel" id="map-panel">
+          <div class="map-panel-content">
+            <p class="map-panel-hint">Toque no mapa para simular um destino</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== PÁGINA: CARTEIRA ====== -->
+      <div class="page page-wallet" id="page-wallet">
+        <h2 class="page-title">Carteira</h2>
+        <div class="wallet-balance-card">
+          <span class="wallet-label">Saldo disponível</span>
+          <strong class="wallet-amount" id="wallet-saldo">R$ 0,00</strong>
+          <div class="wallet-actions">
+            <button class="wallet-btn" onclick="app.showToast('Transferência — somente no dia do evento','info')">
+              <span>💸</span><span>Transferir</span>
+            </button>
+            <button class="wallet-btn" onclick="app.showToast('Adicionar saldo — somente no dia do evento','info')">
+              <span>➕</span><span>Adicionar</span>
+            </button>
+          </div>
+        </div>
+        <div class="wallet-cards">
+          <div class="wallet-stat-card">
+            <span class="wallet-stat-label">Ganhos</span>
+            <strong id="wallet-ganhos">R$ 0,00</strong>
+          </div>
+          <div class="wallet-stat-card">
+            <span class="wallet-stat-label">Corridas</span>
+            <strong id="wallet-corridas">0</strong>
+          </div>
+          <div class="wallet-stat-card">
+            <span class="wallet-stat-label">Créditos</span>
+            <strong id="wallet-creditos">R$ 0,00</strong>
+          </div>
+          <div class="wallet-stat-card">
+            <span class="wallet-stat-label">Histórico</span>
+            <strong>—</strong>
+          </div>
+        </div>
+        <div class="wallet-history">
+          <h3 class="dash-section-title">Histórico</h3>
+          <div class="history-empty" id="history-empty">
+            <p>Nenhuma transação registrada.</p>
+          </div>
+          <div class="history-list hidden" id="history-list"></div>
+        </div>
+      </div>
+
+      <!-- ====== PÁGINA: VALE COMBUSTÍVEL ====== -->
+      <div class="page page-fuel" id="page-fuel">
+        <h2 class="page-title">⛽ Vale combustível</h2>
+        <p class="page-desc">Solicite seu benefício através da plataforma.</p>
+        <div class="fuel-card">
+          <span class="fuel-label">Crédito disponível</span>
+          <strong class="fuel-amount" id="fuel-credito">R$ 300,00</strong>
+          <button class="btn btn-primary btn-full" onclick="app.requestFuel()">Solicitar vale</button>
+        </div>
+        <div class="fuel-requests" id="fuel-requests">
+          <h3 class="dash-section-title">Solicitações</h3>
+          <div class="fuel-empty" id="fuel-empty">
+            <p>Nenhuma solicitação registrada.</p>
+          </div>
+          <div class="fuel-list hidden" id="fuel-list"></div>
+        </div>
+      </div>
+
+      <!-- ====== PÁGINA: PERFIL ====== -->
+      <div class="page page-profile" id="page-profile">
+        <h2 class="page-title">Meu perfil</h2>
+        <div class="profile-card">
+          <div class="profile-avatar" id="profile-avatar">M</div>
+          <h3 class="profile-name" id="profile-nome">—</h3>
+          <p class="profile-id" id="profile-id">ID: —</p>
+        </div>
+        <div class="profile-info">
+          <div class="info-row"><span>CPF</span><strong id="profile-cpf">—</strong></div>
+          <div class="info-row"><span>Marca</span><strong id="profile-marca">—</strong></div>
+          <div class="info-row"><span>Modelo</span><strong id="profile-modelo">—</strong></div>
+          <div class="info-row"><span>Ano</span><strong id="profile-ano">—</strong></div>
+          <div class="info-row"><span>Placa</span><strong id="profile-placa">—</strong></div>
+        </div>
+        <button class="btn btn-outline btn-full" onclick="app.showToast('Edição de perfil — demonstração','info')">Editar informações</button>
+      </div>
+
+      <!-- ====== PÁGINA: CONFIGURAÇÕES ====== -->
+      <div class="page page-settings" id="page-settings">
+        <h2 class="page-title">Configurações</h2>
+        <div class="settings-group">
+          <h4>Geral</h4>
+          <div class="setting-item">
+            <span>Notificações push</span>
+            <label class="toggle">
+              <input type="checkbox" checked onchange="app.showToast('Preferência salva','success')">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-item">
+            <span>Modo escuro</span>
+            <label class="toggle">
+              <input type="checkbox" onchange="app.toggleDarkMode(this)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-item">
+            <span>Som de alerta</span>
+            <label class="toggle">
+              <input type="checkbox" checked onchange="app.showToast('Preferência salva','success')">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="settings-group">
+          <h4>Dados</h4>
+          <button class="setting-btn" onclick="app.exportData()">📥 Exportar dados</button>
+          <button class="setting-btn setting-danger" onclick="app.clearAllData()">🗑️ Apagar todos os dados</button>
+        </div>
+        <div class="settings-group">
+          <h4>Sobre</h4>
+          <div class="setting-item">
+            <span>Versão</span>
+            <span class="setting-value">MVP 1.0</span>
+          </div>
+          <div class="setting-item">
+            <span>Plataforma</span>
+            <span class="setting-value">VivaMob</span>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- Barra de navegação inferior (Mobile) -->
+    <nav class="bottom-nav" id="bottom-nav">
+      <a href="#" class="bottom-nav-item active" data-page="home" onclick="app.setPage('home')">
+        <span class="bottom-nav-icon">🏠</span>
+        <span class="bottom-nav-label">Início</span>
+      </a>
+      <a href="#" class="bottom-nav-item" data-page="rides" onclick="app.setPage('rides')">
+        <span class="bottom-nav-icon">🚗</span>
+        <span class="bottom-nav-label">Corridas</span>
+      </a>
+      <a href="#" class="bottom-nav-item" data-page="map" onclick="app.setPage('map')">
+        <span class="bottom-nav-icon">🗺️</span>
+        <span class="bottom-nav-label">Mapa</span>
+      </a>
+      <a href="#" class="bottom-nav-item" data-page="wallet" onclick="app.setPage('wallet')">
+        <span class="bottom-nav-icon">💰</span>
+        <span class="bottom-nav-label">Carteira</span>
+      </a>
+      <a href="#" class="bottom-nav-item" data-page="profile" onclick="app.setPage('profile')">
+        <span class="bottom-nav-icon">👤</span>
+        <span class="bottom-nav-label">Perfil</span>
+      </a>
+    </nav>
+  </section>
+
+  <script src="db.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
