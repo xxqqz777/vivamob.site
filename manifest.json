@@ -1,0 +1,22 @@
+{
+  "name": "VivaMob — Plataforma para Motoristas",
+  "short_name": "VivaMob",
+  "description": "Plataforma de operação para motoristas de transporte",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F3F4F6",
+  "theme_color": "#10B981",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='192' height='192' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' rx='20' fill='%2310B981'/%3E%3Cpath d='M25 55L40 25L55 55H25Z' stroke='white' stroke-width='4' stroke-linejoin='round' fill='none'/%3E%3Ccircle cx='40' cy='47' r='5' fill='white'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' rx='20' fill='%2310B981'/%3E%3Cpath d='M25 55L40 25L55 55H25Z' stroke='white' stroke-width='4' stroke-linejoin='round' fill='none'/%3E%3Ccircle cx='40' cy='47' r='5' fill='white'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
