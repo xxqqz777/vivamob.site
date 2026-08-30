@@ -1,42 +1,63 @@
 /**
  * ============================================================
  * VIVAMOB — db.js
- * Camada de persistência local usando IndexedDB
+ * Camada de persistência local: IndexedDB com fallback localStorage
  * ============================================================
- * Este módulo gerencia todo o armazenamento local do MVP.
- * Em uma versão de produção, substitua as chamadas a este
- * módulo por requisições a uma API REST real.
+ * Funciona em: file://, localhost, GitHub Pages (HTTPS),
+ * e modo anônimo (onde IndexedDB pode estar indisponível).
  * ============================================================
  */
 
 const DB_NAME = 'VivaMobDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;  // bump version to force schema upgrade
 
 class VivaMobDB {
   constructor() {
     this.db = null;
     this.ready = false;
+    this.useLocalStorage = false; // fallback flag
   }
 
   /**
    * Inicializa a conexão com o IndexedDB.
-   * Cria os object stores se não existirem.
+   * Se IndexedDB falhar (modo anônimo, quotas, etc),
+   * usa localStorage como fallback transparente.
    */
   async init() {
+    // Primeiro tenta IndexedDB
+    try {
+      await this._initIndexedDB();
+      this.ready = true;
+      return;
+    } catch (e) {
+      console.warn('[VivaMobDB] IndexedDB indisponível, usando localStorage fallback:', e.message);
+    }
+
+    // Fallback para localStorage
+    this.useLocalStorage = true;
+    this.ready = true;
+    console.log('[VivaMobDB] Modo localStorage ativado');
+  }
+
+  _initIndexedDB() {
     return new Promise((resolve, reject) => {
+      if (!window.indexedDB) {
+        reject(new Error('IndexedDB não suportado'));
+        return;
+      }
+
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         this.db = request.result;
-        this.ready = true;
         resolve(this.db);
       };
 
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
 
-        // Store: motoristas (dados de cadastro + auth)
+        // Store: motoristas
         if (!db.objectStoreNames.contains('motoristas')) {
           const store = db.createObjectStore('motoristas', { keyPath: 'id', autoIncrement: true });
           store.createIndex('cpf', 'cpf', { unique: true });
@@ -48,13 +69,13 @@ class VivaMobDB {
           store.createIndex('motoristaId', 'motoristaId', { unique: false });
         }
 
-        // Store: transacoes (histórico da carteira)
+        // Store: transacoes
         if (!db.objectStoreNames.contains('transacoes')) {
           const store = db.createObjectStore('transacoes', { keyPath: 'id', autoIncrement: true });
           store.createIndex('motoristaId', 'motoristaId', { unique: false });
         }
 
-        // Store: solicitacoes_vale (vale combustível)
+        // Store: solicitacoes_vale
         if (!db.objectStoreNames.contains('solicitacoes_vale')) {
           const store = db.createObjectStore('solicitacoes_vale', { keyPath: 'id', autoIncrement: true });
           store.createIndex('motoristaId', 'motoristaId', { unique: false });
@@ -65,13 +86,161 @@ class VivaMobDB {
           db.createObjectStore('configuracoes', { keyPath: 'chave' });
         }
       };
+
+      request.onblocked = () => {
+        reject(new Error('Banco bloqueado — feche outras abas com este site'));
+      };
     });
   }
 
-  /**
-   * Gera um hash SHA-256 da senha usando Web Crypto API.
-   * Em produção, use bcrypt/argon2 no servidor.
-   */
+  // ============================================================
+  // FALLBACK localStorage helpers
+  // ============================================================
+
+  _lsKey(store, id) {
+    return `vm_${store}_${id}`;
+  }
+
+  _lsGetAll(store) {
+    const items = [];
+    const prefix = `vm_${store}_`;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(prefix)) {
+        try { items.push(JSON.parse(localStorage.getItem(key))); } catch (e) {}
+      }
+    }
+    return items;
+  }
+
+  _lsGet(store, key) {
+    const raw = localStorage.getItem(this._lsKey(store, key));
+    return raw ? JSON.parse(raw) : undefined;
+  }
+
+  _lsSet(store, key, value) {
+    localStorage.setItem(this._lsKey(store, key), JSON.stringify(value));
+  }
+
+  _lsRemove(store, key) {
+    localStorage.removeItem(this._lsKey(store, key));
+  }
+
+  _lsClear(store) {
+    const prefix = `vm_${store}_`;
+    const toRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(prefix)) toRemove.push(key);
+    }
+    toRemove.forEach(k => localStorage.removeItem(k));
+  }
+
+  _lsNextId(store) {
+    const key = `vm_${store}_nextid`;
+    let id = parseInt(localStorage.getItem(key) || '1', 10);
+    localStorage.setItem(key, String(id + 1));
+    return id;
+  }
+
+  // ============================================================
+  // CRUD Genérico (unificado IndexedDB + localStorage)
+  // ============================================================
+
+  async add(storeName, data) {
+    if (this.useLocalStorage) {
+      const id = this._lsNextId(storeName);
+      const item = { ...data, id };
+      this._lsSet(storeName, id, item);
+      return id;
+    }
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      const request = store.add(data);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async put(storeName, data) {
+    if (this.useLocalStorage) {
+      this._lsSet(storeName, data.id, data);
+      return data.id;
+    }
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      const request = store.put(data);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async get(storeName, key) {
+    if (this.useLocalStorage) {
+      return this._lsGet(storeName, key);
+    }
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(storeName, 'readonly');
+      const store = tx.objectStore(storeName);
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async getAll(storeName, indexName = null, query = null) {
+    if (this.useLocalStorage) {
+      let items = this._lsGetAll(storeName);
+      if (indexName && query !== null) {
+        items = items.filter(i => i[indexName] === query);
+      }
+      return items;
+    }
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(storeName, 'readonly');
+      const store = tx.objectStore(storeName);
+      const source = indexName ? store.index(indexName) : store;
+      const request = query !== null ? source.getAll(query) : source.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async delete(storeName, key) {
+    if (this.useLocalStorage) {
+      this._lsRemove(storeName, key);
+      return;
+    }
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      const request = store.delete(key);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async clear(storeName) {
+    if (this.useLocalStorage) {
+      this._lsClear(storeName);
+      localStorage.removeItem(`vm_${storeName}_nextid`);
+      return;
+    }
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      const request = store.clear();
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  // ============================================================
+  // HASH & ID
+  // ============================================================
+
   async hashSenha(senha) {
     const encoder = new TextEncoder();
     const data = encoder.encode(senha);
@@ -80,75 +249,8 @@ class VivaMobDB {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   }
 
-  /**
-   * Gera um ID único local para exibição ao usuário.
-   */
   gerarIdLocal() {
     return 'VM-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-  }
-
-  // ============================================================
-  // CRUD Genérico
-  // ============================================================
-
-  _transaction(storeName, mode = 'readonly') {
-    if (!this.db) throw new Error('DB não inicializado');
-    return this.db.transaction(storeName, mode).objectStore(storeName);
-  }
-
-  async add(storeName, data) {
-    return new Promise((resolve, reject) => {
-      const store = this._transaction(storeName, 'readwrite');
-      const request = store.add(data);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  async put(storeName, data) {
-    return new Promise((resolve, reject) => {
-      const store = this._transaction(storeName, 'readwrite');
-      const request = store.put(data);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  async get(storeName, key) {
-    return new Promise((resolve, reject) => {
-      const store = this._transaction(storeName);
-      const request = store.get(key);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  async getAll(storeName, indexName = null, query = null) {
-    return new Promise((resolve, reject) => {
-      const store = this._transaction(storeName);
-      const source = indexName ? store.index(indexName) : store;
-      const request = query ? source.getAll(query) : source.getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  async delete(storeName, key) {
-    return new Promise((resolve, reject) => {
-      const store = this._transaction(storeName, 'readwrite');
-      const request = store.delete(key);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  async clear(storeName) {
-    return new Promise((resolve, reject) => {
-      const store = this._transaction(storeName, 'readwrite');
-      const request = store.clear();
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
   }
 
   // ============================================================
@@ -207,7 +309,7 @@ class VivaMobDB {
       destino: dados.destino,
       estimativa: dados.estimativa,
       valor: dados.valor || 0,
-      status: 'pending', // pending, accepted, completed, cancelled
+      status: 'pending',
       dataCriacao: new Date().toISOString(),
       dataConclusao: null,
       demonstracao: true
@@ -225,13 +327,13 @@ class VivaMobDB {
   }
 
   // ============================================================
-  // TRANSAÇÕES (Carteira)
+  // TRANSAÇÕES
   // ============================================================
 
   async adicionarTransacao(motoristaId, dados) {
     const transacao = {
       motoristaId,
-      tipo: dados.tipo, // 'ganho', 'credito', 'transferencia', 'vale'
+      tipo: dados.tipo,
       descricao: dados.descricao,
       valor: dados.valor,
       data: new Date().toISOString(),
@@ -300,7 +402,7 @@ class VivaMobDB {
   }
 
   // ============================================================
-  // LIMPEZA TOTAL (para testes)
+  // LIMPEZA TOTAL
   // ============================================================
 
   async limparTudo() {
@@ -312,7 +414,7 @@ class VivaMobDB {
   }
 
   // ============================================================
-  // EXPORTAR DADOS (JSON)
+  // EXPORTAR DADOS
   // ============================================================
 
   async exportarDados() {
@@ -328,5 +430,5 @@ class VivaMobDB {
   }
 }
 
-// Instância global do banco de dados
+// Instância global
 const db = new VivaMobDB();
