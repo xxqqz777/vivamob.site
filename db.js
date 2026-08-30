@@ -1,332 +1,278 @@
 /**
  * ============================================================
- * VIVAMOB — db.js
- * Camada de persistência local usando IndexedDB
- * ============================================================
- * Este módulo gerencia todo o armazenamento local do MVP.
- * Em uma versão de produção, substitua as chamadas a este
- * módulo por requisições a uma API REST real.
+ * VIVAMOB — app.js (Área Pública)
  * ============================================================
  */
 
-const DB_NAME = 'VivaMobDB';
-const DB_VERSION = 2;
+const app = {
+  state: {
+    tempRegister: {},
+    currentPage: 'landing'
+  },
 
-class VivaMobDB {
-  constructor() {
-    this.db = null;
-    this.ready = false;
-  }
-
-  /**
-   * Inicializa a conexão com o IndexedDB.
-   * Cria os object stores se não existirem.
-   */
   async init() {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const bar = document.querySelector('.loading-bar-fill');
+    if (bar) bar.style.animation = 'loadBar 1s ease forwards';
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        this.db = request.result;
-        this.ready = true;
-        resolve(this.db);
-      };
+    try {
+      await db.init();
+    } catch (e) {
+      console.warn('IndexedDB não disponível', e);
+    }
 
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
+    // Verifica se já existe sessão ativa → redireciona para área do motorista
+    const sessao = await db.getSessao();
+    if (sessao && sessao.id && (!sessao.exp || Date.now() < sessao.exp)) {
+      setTimeout(() => {
+        this.hideLoading();
+        window.location.href = 'areamotorista/';
+      }, 600);
+      return;
+    }
 
-        // Store: motoristas (dados de cadastro + auth)
-        if (!db.objectStoreNames.contains('motoristas')) {
-          const store = db.createObjectStore('motoristas', { keyPath: 'id', autoIncrement: true });
-          store.createIndex('cpf', 'cpf', { unique: true });
-        }
+    // Verifica erro na URL
+    const params = new URLSearchParams(window.location.search);
+    const erro = params.get('erro');
+    if (erro) {
+      setTimeout(() => this.showToast(SEC.escapeHtml(erro), 'error'), 800);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
 
-        // Store: corridas
-        if (!db.objectStoreNames.contains('corridas')) {
-          const store = db.createObjectStore('corridas', { keyPath: 'id', autoIncrement: true });
-          store.createIndex('motoristaId', 'motoristaId', { unique: false });
-        }
+    setTimeout(() => {
+      this.hideLoading();
+      this.navigate('landing');
+    }, 1200);
 
-        // Store: transacoes (histórico da carteira)
-        if (!db.objectStoreNames.contains('transacoes')) {
-          const store = db.createObjectStore('transacoes', { keyPath: 'id', autoIncrement: true });
-          store.createIndex('motoristaId', 'motoristaId', { unique: false });
-        }
+    this.setupGlobalListeners();
+  },
 
-        // Store: solicitacoes_vale (vale combustível)
-        if (!db.objectStoreNames.contains('solicitacoes_vale')) {
-          const store = db.createObjectStore('solicitacoes_vale', { keyPath: 'id', autoIncrement: true });
-          store.createIndex('motoristaId', 'motoristaId', { unique: false });
-        }
+  hideLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.classList.add('hidden');
+  },
 
-        // Store: configuracoes
-        if (!db.objectStoreNames.contains('configuracoes')) {
-          db.createObjectStore('configuracoes', { keyPath: 'chave' });
-        }
-      };
+  setupGlobalListeners() {
+    document.getElementById('reg-cpf')?.addEventListener('input', (e) => {
+      e.target.value = this.maskCPF(e.target.value);
     });
-  }
-
-  /**
-   * Gera um hash SHA-256 da senha usando Web Crypto API.
-   * Em produção, use bcrypt/argon2 no servidor.
-   */
-  async hashSenha(senha) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(senha);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-
-  /**
-   * Gera um ID único local para exibição ao usuário.
-   */
-  gerarIdLocal() {
-    return 'VM-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-  }
-
-  // ============================================================
-  // CRUD Genérico
-  // ============================================================
-
-  _transaction(storeName, mode = 'readonly') {
-    if (!this.db) throw new Error('DB não inicializado');
-    return this.db.transaction(storeName, mode).objectStore(storeName);
-  }
-
-  async add(storeName, data) {
-    return new Promise((resolve, reject) => {
-      const store = this._transaction(storeName, 'readwrite');
-      const request = store.add(data);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+    document.getElementById('login-cpf')?.addEventListener('input', (e) => {
+      e.target.value = this.maskCPF(e.target.value);
     });
-  }
-
-  async put(storeName, data) {
-    return new Promise((resolve, reject) => {
-      const store = this._transaction(storeName, 'readwrite');
-      const request = store.put(data);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+    document.getElementById('reg-placa')?.addEventListener('input', (e) => {
+      e.target.value = this.maskPlaca(e.target.value);
     });
-  }
-
-  async get(storeName, key) {
-    return new Promise((resolve, reject) => {
-      const store = this._transaction(storeName);
-      const request = store.get(key);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+    document.getElementById('reg-ano')?.addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
     });
-  }
+  },
 
-  async getAll(storeName, indexName = null, query = null) {
-    return new Promise((resolve, reject) => {
-      const store = this._transaction(storeName);
-      const source = indexName ? store.index(indexName) : store;
-      const request = query ? source.getAll(query) : source.getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+  navigate(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const target = document.getElementById('screen-' + screenId);
+    if (target) {
+      target.classList.add('active');
+      window.scrollTo(0, 0);
+    }
+  },
+
+  maskCPF(valor) {
+    return valor.replace(/\D/g, '')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+      .replace(/(-\d{2})\d+?$/, '$1');
+  },
+
+  maskPlaca(valor) {
+    return valor.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7);
+  },
+
+  validarCPF(cpf) {
+    const str = cpf.replace(/\D/g, '');
+    if (str.length !== 11 || /^(.)(\1){10}$/.test(str)) return false;
+    let soma = 0, resto;
+    for (let i = 1; i <= 9; i++) soma += parseInt(str[i - 1]) * (11 - i);
+    resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    if (resto !== parseInt(str[9])) return false;
+    soma = 0;
+    for (let i = 1; i <= 10; i++) soma += parseInt(str[i - 1]) * (12 - i);
+    resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    return resto === parseInt(str[10]);
+  },
+
+  validarPlaca(placa) {
+    const p = placa.replace(/[^A-Z0-9]/g, '');
+    return /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(p);
+  },
+
+  validarAno(ano) {
+    const a = parseInt(ano, 10);
+    const atual = new Date().getFullYear();
+    return !isNaN(a) && a >= 1950 && a <= atual + 1;
+  },
+
+  showFieldError(id, msg) {
+    const input = document.getElementById(id);
+    const err = document.getElementById('err-' + id.replace('reg-', '').replace('login-', ''));
+    if (input) input.classList.add('error');
+    if (err) err.textContent = msg;
+  },
+
+  clearFieldErrors() {
+    document.querySelectorAll('.form-input.error').forEach(el => el.classList.remove('error'));
+    document.querySelectorAll('.form-error').forEach(el => el.textContent = '');
+  },
+
+  registerStep1() {
+    this.clearFieldErrors();
+    const nome = document.getElementById('reg-nome')?.value.trim();
+    const cpf = document.getElementById('reg-cpf')?.value.trim();
+    const senha = document.getElementById('reg-senha')?.value;
+
+    let ok = true;
+    if (!nome) { this.showFieldError('reg-nome', 'Nome completo é obrigatório'); ok = false; }
+    if (!cpf || cpf.replace(/\D/g, '').length !== 11) { this.showFieldError('reg-cpf', 'CPF incompleto'); ok = false; }
+    else if (!this.validarCPF(cpf)) { this.showFieldError('reg-cpf', 'CPF inválido'); ok = false; }
+    if (!senha || senha.length < 4) { this.showFieldError('reg-senha', 'Senha deve ter pelo menos 4 caracteres'); ok = false; }
+
+    if (!ok) return;
+
+    this.state.tempRegister = { nome, cpf, senha };
+    this.navigate('register-step2');
+  },
+
+  registerStep2() {
+    this.clearFieldErrors();
+    const marca = document.getElementById('reg-marca')?.value.trim();
+    const modelo = document.getElementById('reg-modelo')?.value.trim();
+    const ano = document.getElementById('reg-ano')?.value.trim();
+    const placa = document.getElementById('reg-placa')?.value.trim();
+
+    let ok = true;
+    if (!marca) { this.showFieldError('reg-marca', 'Marca é obrigatória'); ok = false; }
+    if (!modelo) { this.showFieldError('reg-modelo', 'Modelo é obrigatório'); ok = false; }
+    if (!ano || !this.validarAno(ano)) { this.showFieldError('reg-ano', 'Ano inválido'); ok = false; }
+    if (!placa || !this.validarPlaca(placa)) { this.showFieldError('reg-placa', 'Placa inválida (ex: ABC1D23)'); ok = false; }
+
+    if (!ok) return;
+
+    this.state.tempRegister = { ...this.state.tempRegister, marca, modelo, ano, placa };
+
+    document.getElementById('confirm-nome').textContent = SEC.escapeHtml(this.state.tempRegister.nome);
+    document.getElementById('confirm-cpf').textContent = this.maskCPF(this.state.tempRegister.cpf).replace(/(\d{3})\.(\d{3})\.(\d{3})-(\d{2})/, '$1.$2.***-**');
+    document.getElementById('confirm-marca').textContent = SEC.escapeHtml(marca);
+    document.getElementById('confirm-modelo').textContent = SEC.escapeHtml(modelo);
+    document.getElementById('confirm-ano').textContent = SEC.escapeHtml(ano);
+    document.getElementById('confirm-placa').textContent = this.maskPlaca(placa).replace(/^(...)(.)(..)$/, '$1*-$3');
+
+    this.navigate('register-step3');
+  },
+
+  async registerConfirm() {
+    try {
+      const motorista = await db.cadastrarMotorista(this.state.tempRegister);
+      this.state.tempRegister = {};
+
+      document.getElementById('success-id').textContent = motorista.idLocal;
+      document.getElementById('success-nome').textContent = SEC.escapeHtml(motorista.nome);
+      document.getElementById('success-veiculo').textContent = `${SEC.escapeHtml(motorista.marca)} ${SEC.escapeHtml(motorista.modelo)} ${motorista.ano}`;
+
+      this.navigate('register-success');
+      this.showToast('Cadastro realizado com sucesso!', 'success');
+    } catch (e) {
+      this.showToast('Erro ao cadastrar: ' + SEC.escapeHtml(e.message || 'tente novamente'), 'error');
+    }
+  },
+
+  async doLogin() {
+    this.clearFieldErrors();
+
+    // Rate limit
+    const block = SEC.isBlocked();
+    if (block && block.blocked) {
+      this.showFieldError('login-senha', `Muitas tentativas. Aguarde ${block.minutes} min.`);
+      return;
+    }
+
+    const cpf = document.getElementById('login-cpf')?.value.trim();
+    const senha = document.getElementById('login-senha')?.value;
+
+    let ok = true;
+    if (!cpf || cpf.replace(/\D/g, '').length !== 11) { this.showFieldError('login-cpf', 'CPF incompleto'); ok = false; }
+    if (!senha) { this.showFieldError('login-senha', 'Senha é obrigatória'); ok = false; }
+    if (!ok) return;
+
+    const motorista = await db.autenticar(cpf, senha);
+    if (!motorista) {
+      SEC.recordAttempt();
+      this.showFieldError('login-senha', 'CPF ou senha incorretos');
+      return;
+    }
+
+    SEC.resetAttempts();
+    await db.setSessao(motorista);
+    this.showToast(`Bem-vindo, ${SEC.escapeHtml(motorista.nome.split(' ')[0])}!`, 'success');
+
+    // Redireciona para área do motorista
+    setTimeout(() => {
+      window.location.href = 'areamotorista/';
+    }, 600);
+  },
+
+  showForgotPassword() {
+    this.openModal('Recuperação de senha',
+      'Em produção, enviaríamos um link de redefinição para o celular cadastrado.\n\nNenhum dado é enviado para servidores externos.',
+      [{ text: 'Entendi', class: 'btn-primary', action: () => this.closeModal() }]
+    );
+  },
+
+  formatMoney(valor) {
+    return 'R$ ' + parseFloat(valor || 0).toFixed(2).replace('.', ',');
+  },
+
+  togglePassword(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const isHidden = input.type === 'password';
+    input.type = isHidden ? 'text' : 'password';
+    btn.textContent = isHidden ? '🙈' : '👁️';
+  },
+
+  showToast(mensagem, tipo = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${tipo}`;
+    const iconos = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+    toast.innerHTML = `<span>${iconos[tipo] || 'ℹ️'}</span><span>${SEC.escapeHtml(mensagem)}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.animation = 'toastOut 0.3s ease forwards';
+      setTimeout(() => toast.remove(), 300);
+    }, 3500);
+  },
+
+  openModal(titulo, corpo, botoes = []) {
+    document.getElementById('modal-title').textContent = titulo;
+    document.getElementById('modal-body').innerHTML = SEC.escapeHtml(corpo).replace(/\n/g, '<br>');
+    const footer = document.getElementById('modal-footer');
+    footer.innerHTML = '';
+    botoes.forEach(b => {
+      const btn = document.createElement('button');
+      btn.className = `btn ${b.class || 'btn-primary'}`;
+      btn.textContent = b.text;
+      btn.onclick = () => { b.action(); };
+      footer.appendChild(btn);
     });
+    document.getElementById('modal-overlay').classList.add('visible');
+  },
+
+  closeModal() {
+    document.getElementById('modal-overlay').classList.remove('visible');
   }
+};
 
-  async delete(storeName, key) {
-    return new Promise((resolve, reject) => {
-      const store = this._transaction(storeName, 'readwrite');
-      const request = store.delete(key);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  async clear(storeName) {
-    return new Promise((resolve, reject) => {
-      const store = this._transaction(storeName, 'readwrite');
-      const request = store.clear();
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  // ============================================================
-  // MOTORISTA
-  // ============================================================
-
-  async cadastrarMotorista(dados) {
-    const senhaHash = await this.hashSenha(dados.senha);
-    const motorista = {
-      idLocal: this.gerarIdLocal(),
-      nome: dados.nome.trim(),
-      cpf: dados.cpf.replace(/\D/g, ''),
-      senhaHash: senhaHash,
-      marca: dados.marca.trim(),
-      modelo: dados.modelo.trim(),
-      ano: parseInt(dados.ano, 10),
-      placa: dados.placa.toUpperCase().replace(/[^A-Z0-9]/g, ''),
-      saldo: 0,
-      corridasRealizadas: 0,
-      ganhosTotal: 0,
-      creditos: 0,
-      dataCadastro: new Date().toISOString(),
-      ativo: true
-    };
-    const id = await this.add('motoristas', motorista);
-    return { ...motorista, id };
-  }
-
-  async autenticar(cpf, senha) {
-    const cpfLimpo = cpf.replace(/\D/g, '');
-    const motoristas = await this.getAll('motoristas', 'cpf', cpfLimpo);
-    if (!motoristas || motoristas.length === 0) return null;
-    const motorista = motoristas[0];
-    const senhaHash = await this.hashSenha(senha);
-    if (motorista.senhaHash !== senhaHash) return null;
-    return motorista;
-  }
-
-  async getMotorista(id) {
-    return this.get('motoristas', id);
-  }
-
-  async atualizarMotorista(motorista) {
-    return this.put('motoristas', motorista);
-  }
-
-  // ============================================================
-  // CORRIDAS
-  // ============================================================
-
-  async criarCorrida(motoristaId, dados) {
-    const corrida = {
-      motoristaId,
-      passageiro: dados.passageiro || 'Passageiro',
-      embarque: dados.embarque,
-      destino: dados.destino,
-      estimativa: dados.estimativa,
-      valor: dados.valor || 0,
-      status: 'pending', // pending, accepted, completed, cancelled
-      dataCriacao: new Date().toISOString(),
-      dataConclusao: null,
-      demonstracao: true
-    };
-    const id = await this.add('corridas', corrida);
-    return { ...corrida, id };
-  }
-
-  async getCorridasMotorista(motoristaId) {
-    return this.getAll('corridas', 'motoristaId', motoristaId);
-  }
-
-  async atualizarCorrida(corrida) {
-    return this.put('corridas', corrida);
-  }
-
-  // ============================================================
-  // TRANSAÇÕES (Carteira)
-  // ============================================================
-
-  async adicionarTransacao(motoristaId, dados) {
-    const transacao = {
-      motoristaId,
-      tipo: dados.tipo, // 'ganho', 'credito', 'transferencia', 'vale'
-      descricao: dados.descricao,
-      valor: dados.valor,
-      data: new Date().toISOString(),
-      demonstracao: true
-    };
-    const id = await this.add('transacoes', transacao);
-    return { ...transacao, id };
-  }
-
-  async getTransacoesMotorista(motoristaId) {
-    return this.getAll('transacoes', 'motoristaId', motoristaId);
-  }
-
-  // ============================================================
-  // VALE COMBUSTÍVEL
-  // ============================================================
-
-  async solicitarVale(motoristaId, valor) {
-    const solicitacao = {
-      motoristaId,
-      valor: valor || 300,
-      status: 'Solicitação registrada — demonstração',
-      data: new Date().toISOString(),
-      demonstracao: true
-    };
-    const id = await this.add('solicitacoes_vale', solicitacao);
-    return { ...solicitacao, id };
-  }
-
-  async getSolicitacoesVale(motoristaId) {
-    return this.getAll('solicitacoes_vale', 'motoristaId', motoristaId);
-  }
-
-  // ============================================================
-  // CONFIGURAÇÕES
-  // ============================================================
-
-  async setConfig(chave, valor) {
-    await this.put('configuracoes', { chave, valor });
-  }
-
-  async getConfig(chave, padrao = null) {
-    const item = await this.get('configuracoes', chave);
-    return item ? item.valor : padrao;
-  }
-
-  // ============================================================
-  // SESSÃO
-  // ============================================================
-
-  async setSessao(motorista) {
-    await this.setConfig('sessao_ativa', JSON.stringify({
-      id: motorista.id,
-      nome: motorista.nome,
-      idLocal: motorista.idLocal
-    }));
-  }
-
-  async getSessao() {
-    const raw = await this.getConfig('sessao_ativa');
-    return raw ? JSON.parse(raw) : null;
-  }
-
-  async limparSessao() {
-    await this.setConfig('sessao_ativa', null);
-  }
-
-  // ============================================================
-  // LIMPEZA TOTAL (para testes)
-  // ============================================================
-
-  async limparTudo() {
-    await this.clear('motoristas');
-    await this.clear('corridas');
-    await this.clear('transacoes');
-    await this.clear('solicitacoes_vale');
-    await this.clear('configuracoes');
-  }
-
-  // ============================================================
-  // EXPORTAR DADOS (JSON)
-  // ============================================================
-
-  async exportarDados() {
-    const dados = {
-      motoristas: await this.getAll('motoristas'),
-      corridas: await this.getAll('corridas'),
-      transacoes: await this.getAll('transacoes'),
-      solicitacoes_vale: await this.getAll('solicitacoes_vale'),
-      configuracoes: await this.getAll('configuracoes'),
-      exportadoEm: new Date().toISOString()
-    };
-    return JSON.stringify(dados, null, 2);
-  }
-}
-
-// Instância global do banco de dados
-const db = new VivaMobDB();
+document.addEventListener('DOMContentLoaded', () => {
+  app.init();
+});
